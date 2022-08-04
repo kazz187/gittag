@@ -14,20 +14,22 @@ type Git struct {
 	r *git.Repository
 }
 
-func NewGit(dir, remote string, auth transport.AuthMethod) *Git {
+func NewGit(dir, remote string, auth transport.AuthMethod) (*Git, error) {
+	repo, err := git.PlainOpen(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open repository: %w", err)
+	}
 	return &Git{
 		dir:    dir,
 		remote: remote,
 		auth:   auth,
-	}
+
+		r: repo,
+	}, nil
 }
 
 func (g *Git) RemoteTags() ([]string, error) {
-	repo, err := git.PlainOpen(g.dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open repository: %w", err)
-	}
-	remote, err := repo.Remote(g.remote)
+	remote, err := g.r.Remote(g.remote)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get remote: %w", err)
 	}
@@ -42,7 +44,6 @@ func (g *Git) RemoteTags() ([]string, error) {
 		if ref.Name().IsTag() {
 			tags = append(tags, ref.Name().Short())
 		}
-
 	}
 	return tags, nil
 }
