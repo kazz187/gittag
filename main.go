@@ -2,28 +2,31 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/Masterminds/semver/v3"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/mattn/go-runewidth"
+	"github.com/rivo/tview"
 	"gopkg.in/alecthomas/kingpin.v2"
-	"os"
 )
 
 type Command struct {
-	Position *string
-	Pre      *string
-	Remote   *string
-	Repo     *string
-	Debug    *bool
+	Segment *string
+	Pre     *string
+	Remote  *string
+	Repo    *string
+	Debug   *bool
 }
 
 func NewCommand() *Command {
 	app := kingpin.New("gittag", "Semantic versioning tagging tool")
 	cmd := &Command{
-		Position: app.Flag("position", "the position to increment").Short('p').Enum("major", "minor", "patch"),
-		Pre:      app.Flag("pre", "the prerelease suffix").String(),
-		Remote:   app.Flag("remote", "the git remote").Default("origin").String(),
-		Repo:     app.Flag("repo", "the git repository").Default(".").ExistingDir(),
-		Debug:    app.Flag("debug", "enable debug mode").Default("false").Bool(),
+		Segment: app.Flag("segment", "the segment to increment").Short('s').Enum("major", "minor", "patch"),
+		Pre:     app.Flag("pre", "the prerelease suffix").String(),
+		Remote:  app.Flag("remote", "the git remote").Default("origin").String(),
+		Repo:    app.Flag("repo", "the git repository").Default(".").ExistingDir(),
+		Debug:   app.Flag("debug", "enable debug mode").Default("false").Bool(),
 	}
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 	return cmd
@@ -32,7 +35,7 @@ func NewCommand() *Command {
 func main() {
 	interactive := false
 	cmd := NewCommand()
-	if *cmd.Position == "" && *cmd.Pre == "" {
+	if *cmd.Segment == "" && *cmd.Pre == "" {
 		interactive = true
 	}
 	auth, err := gitssh.DefaultAuthBuilder("git")
@@ -48,48 +51,71 @@ func main() {
 		fmt.Println("failed to get remote tags:", err)
 	}
 
+	// TODO: remove
+	tags = append(tags, "2.0.0-dev.30")
+
 	sv := NewSemVers(tags, *cmd.Debug)
-	latestPreMap := sv.LatestPre()
 	// 最新バージョンの概要を表示
 	for _, pre := range sv.PreRank {
-		version, ok := latestPreMap[pre]
+		version, ok := sv.LatestPre[pre]
 		if !ok {
 			continue
 		}
 		fmt.Printf("latest pre(%s): %s\n", pre, version)
 	}
-	latest := sv.Latest()
+	latest := sv.Latest
 	fmt.Println("latest:", latest)
 
 	if interactive {
-		fmt.Println("---")
-		// 次バージョンの候補を表示
-		for _, pre := range sv.PreRank {
-			version, ok := latestPreMap[pre]
-			if !ok {
-				continue
-			}
-			p, n, err := ParsePre(version.Prerelease())
-			if err != nil {
-				fmt.Println("failed to parse prerelease:", err)
-			}
-			var v semver.Version
-			if version.GreaterThan(latest) {
-				v, err = version.SetPrerelease(fmt.Sprintf("%s.%d", p, n+1))
-				if err != nil {
-					fmt.Println("failed to set prerelease:", err)
-				}
-			} else {
-				v, err = latest.IncPatch().SetPrerelease(fmt.Sprintf("%s.%d", p, 1))
-				if err != nil {
-					fmt.Println("failed to set prerelease:", err)
-				}
-			}
-			fmt.Printf("bump pre(%s): %s\n", pre, v)
-
+		runewidth.DefaultCondition = &runewidth.Condition{
+			EastAsianWidth: false,
 		}
-		fmt.Println("bump patch:", latest.IncPatch())
-		fmt.Println("bump minor:", latest.IncMinor())
-		fmt.Println("bump major:", latest.IncMajor())
+		// 次バージョンの候補を表示
+		NextVersions := []semver.Version{
+			latest.IncPatch(),
+			latest.IncMinor(),
+			latest.IncMajor(),
+		}
+
+		table := tview.NewTable().SetFixed(len(NextVersions), len(sv.PreRank)+2)
+		table.SetCell(0, 0, tview.NewTableCell("patch").SetSelectable(false))
+		table.SetCell(1, 0, tview.NewTableCell("minor").SetSelectable(false))
+		table.SetCell(2, 0, tview.NewTableCell("major").SetSelectable(false))
+
+		for i, next := range NextVersions {
+			table.SetCell(i, 1, tview.NewTableCell(next.String()))
+			for j, pre := range sv.PreRank {
+				latestVerPre, _ := sv.LatestVerPre[fmt.Sprintf("%d.%d.%d-%s", next.Major(), next.Minor(), next.Patch(), pre)]
+
+				var v semver.Version
+				if latestVerPre != nil &&
+					next.Major() == latestVerPre.Major() &&
+					next.Minor() == latestVerPre.Minor() &&
+					next.Patch() == latestVerPre.Patch() {
+					p, n, err := ParsePre(latestVerPre.Prerelease())
+					if err != nil {
+						fmt.Println("failed to parse prerelease:", err)
+						continue
+					}
+					v, err = latestVerPre.SetPrerelease(fmt.Sprintf("%s.%d", p, n+1))
+					if err != nil {
+						fmt.Println("failed to set prerelease:", err)
+						continue
+					}
+				} else {
+					v, err = next.SetPrerelease(fmt.Sprintf("%s.%d", pre, 1))
+					if err != nil {
+						fmt.Print("failed to set prerelease:", err)
+						continue
+					}
+				}
+				table.SetCell(i, j+2, tview.NewTableCell(v.String()))
+			}
+			fmt.Println("")
+		}
+		table.SetSelectable(true, true).SetBorders(true)
+		if err := tview.NewApplication().SetRoot(table, true).Run(); err != nil {
+			fmt.Println("failed to view bump version select table:", err)
+		}
 	}
 }

@@ -10,8 +10,11 @@ import (
 )
 
 type SemVers struct {
-	Versions []*semver.Version
-	PreRank  []string
+	Versions     []*semver.Version
+	PreRank      []string
+	Latest       *semver.Version
+	LatestPre    map[string]*semver.Version
+	LatestVerPre map[string]*semver.Version
 }
 
 func NewSemVers(versions []string, debug bool) *SemVers {
@@ -53,14 +56,18 @@ func NewSemVers(versions []string, debug bool) *SemVers {
 		return preCount[sv.PreRank[i]] > preCount[sv.PreRank[j]]
 	})
 
+	// すべての Version をソート
 	sort.Slice(sv.Versions, func(i, j int) bool {
 		return sv.Versions[i].GreaterThan(sv.Versions[j])
 	})
 
+	sv.Latest = sv.latest()
+	sv.LatestPre, sv.LatestVerPre = sv.latestPre()
+
 	return &sv
 }
 
-func (sv *SemVers) Latest() *semver.Version {
+func (sv *SemVers) latest() *semver.Version {
 	for _, version := range sv.Versions {
 		if version.Prerelease() != "" {
 			continue
@@ -70,8 +77,9 @@ func (sv *SemVers) Latest() *semver.Version {
 	return semver.MustParse("v0.0.0")
 }
 
-func (sv *SemVers) LatestPre() map[string]*semver.Version {
-	preMap := map[string]*semver.Version{}
+func (sv *SemVers) latestPre() (map[string]*semver.Version, map[string]*semver.Version) {
+	preMap := map[string]*semver.Version{}    // Key: prerelease (ex: "alpha", "beta", "rc")
+	verPreMap := map[string]*semver.Version{} // Key: ver-prerelease (ex: "v1.0.0-alpha", "v1.0.0-beta", "v1.0.0-rc")
 	for _, version := range sv.Versions {
 		if version.Prerelease() == "" {
 			continue
@@ -80,12 +88,16 @@ func (sv *SemVers) LatestPre() map[string]*semver.Version {
 		if err != nil {
 			continue
 		}
-		if _, ok := preMap[p]; ok {
-			continue
+		if _, ok := preMap[p]; !ok {
+			preMap[p] = version
 		}
-		preMap[p] = version
+
+		verPre := fmt.Sprintf("%d.%d.%d-%s", version.Major(), version.Minor(), version.Patch(), p)
+		if _, ok := verPreMap[verPre]; !ok {
+			verPreMap[verPre] = version
+		}
 	}
-	return preMap
+	return preMap, verPreMap
 }
 
 func ParsePre(str string) (string, int, error) {
