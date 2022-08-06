@@ -51,9 +51,6 @@ func main() {
 		fmt.Println("failed to get remote tags:", err)
 	}
 
-	// TODO: remove
-	tags = append(tags, "2.0.0-dev.30")
-
 	sv := NewSemVers(tags, *cmd.Debug)
 	// 最新バージョンの概要を表示
 	for _, pre := range sv.PreRank {
@@ -114,8 +111,15 @@ func main() {
 			fmt.Println("")
 		}
 		table.SetSelectable(true, true).SetBorders(true)
-		if err := tview.NewApplication().SetRoot(table, true).Run(); err != nil {
+		app := tview.NewApplication()
+		var selectedVersion string
+		table.SetSelectedFunc(func(row, column int) {
+			selectedVersion = table.GetCell(row, column).Text
+			app.Stop()
+		})
+		if err := app.SetRoot(table, true).Run(); err != nil {
 			fmt.Println("failed to view bump version select table:", err)
 		}
+		fmt.Printf("selected next version: %s\n", selectedVersion)
 	}
 }
