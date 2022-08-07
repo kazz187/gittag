@@ -102,7 +102,7 @@ func main() {
 			if !ok {
 				v = latest.IncPatch().String()
 			} else {
-				v = version.String()
+				v = fmt.Sprintf("%d.%d.%d", version.Major(), version.Minor(), version.Patch())
 			}
 		}
 		verPre := v + "-" + *cmd.Pre
