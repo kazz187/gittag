@@ -56,6 +56,8 @@ func main() {
 
 	sv := NewSemVers(tags, *cmd.Debug)
 	// 最新バージョンの概要を表示
+	latest := sv.Latest
+	fmt.Println("latest:", latest)
 	for _, pre := range sv.PreRank {
 		version, ok := sv.LatestPre[pre]
 		if !ok {
@@ -63,8 +65,6 @@ func main() {
 		}
 		fmt.Printf("latest pre(%s): %s\n", pre, version)
 	}
-	latest := sv.Latest
-	fmt.Println("latest:", latest)
 
 	v := *cmd.Tag
 	if interactive {
@@ -73,7 +73,6 @@ func main() {
 			fmt.Println("failed to select next version:", err)
 			return
 		}
-
 	}
 	fmt.Printf("create version: %s\n", v)
 }
@@ -133,7 +132,18 @@ func SelectNextVersion(sv *SemVers) (string, error) {
 		selectedVersion = table.GetCell(row, column).Text
 		app.Stop()
 	})
-	if err := app.SetRoot(table, true).Run(); err != nil {
+	msg := tview.NewTextView().SetText("Select next version:")
+	selected := tview.NewTextView().SetText(table.GetCell(0, 1).Text)
+	table.SetSelectionChangedFunc(func(row, column int) {
+		selected.SetText(table.GetCell(row, column).Text)
+	})
+	grid := tview.NewGrid()
+	grid.SetRows(1, 0)
+	grid.SetColumns(21, 0)
+	grid.AddItem(msg, 0, 0, 1, 1, 0, 0, false)
+	grid.AddItem(selected, 0, 1, 1, 1, 0, 0, false)
+	grid.AddItem(table, 1, 0, 1, 2, 0, 0, true)
+	if err := app.SetRoot(grid, true).Run(); err != nil {
 		fmt.Println("failed to view bump version select table:", err)
 	}
 	if selectedVersion == "" {
