@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -17,9 +18,21 @@ type Git struct {
 }
 
 func NewGit(dir, remote string, auth transport.AuthMethod) (*Git, error) {
-	repo, err := git.PlainOpen(dir)
+	path, err := filepath.Abs(dir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open repository: %w", err)
+		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+	var repo *git.Repository
+	for {
+		repo, err = git.PlainOpen(path)
+		if err != nil {
+			path = filepath.Dir(path)
+			if path == "/" {
+				return nil, fmt.Errorf("repository does not exist")
+			}
+			continue
+		}
+		break
 	}
 	return &Git{
 		dir:    dir,

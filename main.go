@@ -55,14 +55,17 @@ func main() {
 	auth, err := gitssh.DefaultAuthBuilder("git")
 	if err != nil {
 		fmt.Println("failed to get git auth:", err)
+		return
 	}
 	g, err := NewGit(*cmd.Repo, *cmd.Remote, auth)
 	if err != nil {
 		fmt.Println("failed to get git repository:", err)
+		return
 	}
 	tags, err := g.RemoteTags()
 	if err != nil {
 		fmt.Println("failed to get remote tags:", err)
+		return
 	}
 
 	sv := NewSemVers(tags, *cmd.Debug)
