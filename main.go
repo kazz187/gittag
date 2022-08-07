@@ -19,6 +19,7 @@ type Command struct {
 	Pre     *string
 	Remote  *string
 	Repo    *string
+	Yes     *bool
 	Debug   *bool
 	Tag     *string
 }
@@ -29,7 +30,8 @@ func NewCommand() *Command {
 		Segment: app.Flag("segment", "the segment to increment").Short('s').Enum("major", "minor", "patch"),
 		Pre:     app.Flag("pre", "the prerelease suffix").String(),
 		Remote:  app.Flag("remote", "the git remote").Default("origin").String(),
-		Repo:    app.Flag("repo", "the git repository").Default(".").ExistingDir(),
+		Repo:    app.Flag("repo", "the directory of git repository").Default(".").ExistingDir(),
+		Yes:     app.Flag("yes", "answer yes to all questions").Short('y').Bool(),
 		Debug:   app.Flag("debug", "enable debug mode").Default("false").Bool(),
 		Tag:     app.Arg("tag", "the tag to create").String(),
 	}
@@ -118,7 +120,12 @@ func main() {
 		v = "v" + v
 	}
 	fmt.Println("---")
-	create := prompter.YN(fmt.Sprintf("Create and push new tag %s to the remote %s?", v, *cmd.Remote), false)
+	create := false
+	if *cmd.Yes {
+		create = true
+	} else {
+		create = prompter.YN(fmt.Sprintf("Create and push new tag %s to the remote %s?", v, *cmd.Remote), false)
+	}
 	if create {
 		fmt.Printf("Created the tag %s\n", v)
 		fmt.Printf("Pushed the tag %s to the remote %s\n", v, *cmd.Remote)
