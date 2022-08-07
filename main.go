@@ -35,7 +35,7 @@ func NewCommand() *Command {
 	app := kingpin.New("gittag", "Semantic versioning tagging tool")
 	cmd := &Command{
 		Segment: app.Flag("segment", "the segment to increment").Short('s').Enum(SegmentMajor, SegmentMinor, SegmentPatch),
-		Pre:     app.Flag("pre", "the prerelease suffix").String(),
+		Pre:     app.Flag("pre", "the prerelease suffix").Short('p').String(),
 		Remote:  app.Flag("remote", "the git remote").Default("origin").String(),
 		Repo:    app.Flag("repo", "the directory of git repository").Default(".").ExistingDir(),
 		Yes:     app.Flag("yes", "answer yes to all questions").Short('y').Bool(),

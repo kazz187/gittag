@@ -22,14 +22,14 @@ Semantic versioning tagging tool
 Flags:
       --help             Show context-sensitive help (also try --help-long and --help-man).
   -s, --segment=SEGMENT  the segment to increment
-      --pre=PRE          the prerelease suffix
+  -p, --pre=PRE          the prerelease suffix
       --remote="origin"  the git remote
       --repo=.           the directory of git repository
   -y, --yes              answer yes to all questions
       --debug            enable debug mode
 
 Args:
-  [<tag>]  the tag to create 
+  [<tag>]  the tag to create
 ```
 
 ## Example
