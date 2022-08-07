@@ -24,10 +24,16 @@ type Command struct {
 	Tag     *string
 }
 
+const (
+	SegmentMajor = "major"
+	SegmentMinor = "minor"
+	SegmentPatch = "patch"
+)
+
 func NewCommand() *Command {
 	app := kingpin.New("gittag", "Semantic versioning tagging tool")
 	cmd := &Command{
-		Segment: app.Flag("segment", "the segment to increment").Short('s').Enum("major", "minor", "patch"),
+		Segment: app.Flag("segment", "the segment to increment").Short('s').Enum(SegmentMajor, SegmentMinor, SegmentPatch),
 		Pre:     app.Flag("pre", "the prerelease suffix").String(),
 		Remote:  app.Flag("remote", "the git remote").Default("origin").String(),
 		Repo:    app.Flag("repo", "the directory of git repository").Default(".").ExistingDir(),
@@ -81,11 +87,11 @@ func main() {
 
 	if *cmd.Segment != "" {
 		switch *cmd.Segment {
-		case "major":
+		case SegmentMajor:
 			v = latest.IncMajor().String()
-		case "minor":
+		case SegmentMinor:
 			v = latest.IncMinor().String()
-		case "patch":
+		case SegmentPatch:
 			v = latest.IncPatch().String()
 		}
 	}
