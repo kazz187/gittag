@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/Songmu/prompter"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/mattn/go-runewidth"
 	"github.com/rivo/tview"
@@ -74,7 +76,53 @@ func main() {
 			return
 		}
 	}
-	fmt.Printf("create version: %s\n", v)
+
+	if *cmd.Segment != "" {
+		switch *cmd.Segment {
+		case "major":
+			v = latest.IncMajor().String()
+		case "minor":
+			v = latest.IncMinor().String()
+		case "patch":
+			v = latest.IncPatch().String()
+		}
+	}
+	if *cmd.Pre != "" {
+		if v == "" {
+			version, ok := sv.LatestPre[*cmd.Pre]
+			if !ok {
+				v = latest.IncPatch().String()
+			} else {
+				v = version.String()
+			}
+		}
+		verPre := v + "-" + *cmd.Pre
+		if version, ok := sv.LatestVerPre[verPre]; !ok {
+			v = verPre + ".1"
+		} else {
+			pre := version.Prerelease()
+			_, n, err := ParsePre(pre)
+			if err != nil {
+				fmt.Println("failed to parse prerelease:", err)
+				return
+			}
+			v = fmt.Sprintf("%s.%d", verPre, n+1)
+		}
+	}
+
+	if v == "" {
+		fmt.Println("no tag specified")
+		return
+	}
+	if !strings.HasPrefix(v, "v") {
+		v = "v" + v
+	}
+	fmt.Println("---")
+	create := prompter.YN(fmt.Sprintf("Create and push new tag %s to the remote %s?", v, *cmd.Remote), false)
+	if create {
+		fmt.Printf("Created the tag %s\n", v)
+		fmt.Printf("Pushed the tag %s to the remote %s\n", v, *cmd.Remote)
+	}
 }
 
 func SelectNextVersion(sv *SemVers) (string, error) {
