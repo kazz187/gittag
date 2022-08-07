@@ -8,6 +8,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/Songmu/prompter"
+	"github.com/go-git/go-git/v5"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/mattn/go-runewidth"
 	"github.com/rivo/tview"
@@ -132,10 +133,30 @@ func main() {
 	} else {
 		create = prompter.YN(fmt.Sprintf("Create and push new tag %s to the remote %s?", v, *cmd.Remote), false)
 	}
-	if create {
-		fmt.Printf("Created the tag %s\n", v)
-		fmt.Printf("Pushed the tag %s to the remote %s\n", v, *cmd.Remote)
+
+	if !create {
+		return
 	}
+	err = g.CreateTag(v)
+	if err != nil {
+		if errors.Is(err, git.ErrTagExists) {
+			fmt.Printf("Tag %s already exists\n", v)
+			cont := prompter.YN(fmt.Sprintf("Push existed tag %s to the remote %s?", v, *cmd.Remote), false)
+			if !cont {
+				return
+			}
+		} else {
+			fmt.Println("failed to create tag:", err)
+			return
+		}
+	} else {
+		fmt.Printf("Created the tag %s\n", v)
+	}
+	if err := g.PushTag(v); err != nil {
+		fmt.Println("failed to push tag:", err)
+		return
+	}
+	fmt.Printf("Pushed the tag %s to the remote %s\n", v, *cmd.Remote)
 }
 
 func SelectNextVersion(sv *SemVers) (string, error) {

@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 )
 
@@ -46,4 +48,30 @@ func (g *Git) RemoteTags() ([]string, error) {
 		}
 	}
 	return tags, nil
+}
+
+func (g *Git) CreateTag(tag string) error {
+	l, err := g.r.Log(&git.LogOptions{
+		All: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get commit log: %w", err)
+	}
+	c, err := l.Next()
+	if err != nil {
+		return fmt.Errorf("failed to get current commit: %w", err)
+	}
+	_, err = g.r.CreateTag(tag, c.Hash, &git.CreateTagOptions{
+		Message: tag,
+	})
+	return err
+}
+
+func (g *Git) PushTag(tag string) error {
+	err := g.r.Push(&git.PushOptions{
+		Auth:       g.auth,
+		RemoteName: g.remote,
+		RefSpecs:   []config.RefSpec{config.RefSpec("refs/tags/" + tag + ":refs/tags/" + tag)},
+	})
+	return err
 }
