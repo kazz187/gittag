@@ -123,7 +123,6 @@ func SelectNextVersion(sv *SemVers) (string, error) {
 			}
 			table.SetCell(i, j+2, tview.NewTableCell(v.String()))
 		}
-		fmt.Println("")
 	}
 	table.SetSelectable(true, true).SetBorders(false)
 	app := tview.NewApplication()
