@@ -64,9 +64,7 @@ func (g *Git) RemoteTags() ([]string, error) {
 }
 
 func (g *Git) CreateTag(tag string) error {
-	l, err := g.r.Log(&git.LogOptions{
-		All: true,
-	})
+	l, err := g.r.Log(&git.LogOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get commit log: %w", err)
 	}
