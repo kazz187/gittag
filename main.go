@@ -4,15 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/Songmu/prompter"
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/mattn/go-runewidth"
 	"github.com/rivo/tview"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 type Command struct {
@@ -46,13 +49,47 @@ func NewCommand() *Command {
 	return cmd
 }
 
+func getGitAuth(username string) (transport.AuthMethod, error) {
+	if path := os.Getenv("GITTAG_SSH_AUTH_SOCK"); path != "" {
+		if err := os.Setenv("SSH_AUTH_SOCK", path); err != nil {
+			return nil, fmt.Errorf("failed to set SSH_AUTH_SOCK: %w", err)
+		}
+	}
+	if os.Getenv("SSH_AUTH_SOCK") != "" {
+		auth, err := gitssh.DefaultAuthBuilder(username)
+		if err == nil {
+			return auth, nil
+		}
+	}
+
+	keyPath := ""
+	if path := os.Getenv("GITTAG_SSH_KEY"); path != "" {
+		keyPath = path
+	} else {
+		curUser, err := user.Current()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current user: %w", err)
+		}
+		keyPath = filepath.Join(curUser.HomeDir, ".ssh", "id_rsa")
+	}
+	passphrease := ""
+	if pf := os.Getenv("GITTAG_SSH_PASSPHRASE"); pf != "" {
+		passphrease = pf
+	}
+	auth, err := gitssh.NewPublicKeysFromFile(username, keyPath, passphrease)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load private key from %s: %w", keyPath, err)
+	}
+	return auth, nil
+}
+
 func main() {
 	interactive := false
 	cmd := NewCommand()
 	if *cmd.Segment == "" && *cmd.Pre == "" && *cmd.Tag == "" {
 		interactive = true
 	}
-	auth, err := gitssh.DefaultAuthBuilder("git")
+	auth, err := getGitAuth("git")
 	if err != nil {
 		fmt.Println("failed to get git auth:", err)
 		return
