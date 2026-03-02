@@ -23,6 +23,7 @@ type Command struct {
 	Pre     *string
 	Remote  *string
 	Repo    *string
+	Dir     *string
 	Yes     *bool
 	Debug   *bool
 	Tag     *string
@@ -41,6 +42,7 @@ func NewCommand() *Command {
 		Pre:     app.Flag("pre", "the prerelease suffix").Short('p').String(),
 		Remote:  app.Flag("remote", "the git remote").Default("origin").String(),
 		Repo:    app.Flag("repo", "the directory of git repository").Default(".").ExistingDir(),
+		Dir:     app.Flag("dir", "the directory prefix for the tag").Short('d').String(),
 		Yes:     app.Flag("yes", "answer yes to all questions").Short('y').Bool(),
 		Debug:   app.Flag("debug", "enable debug mode").Default("false").Bool(),
 		Tag:     app.Arg("tag", "the tag to create").String(),
@@ -105,6 +107,17 @@ func main() {
 		return
 	}
 
+	if *cmd.Dir != "" {
+		prefix := strings.TrimSuffix(*cmd.Dir, "/") + "/"
+		var filtered []string
+		for _, tag := range tags {
+			if strings.HasPrefix(tag, prefix) {
+				filtered = append(filtered, strings.TrimPrefix(tag, prefix))
+			}
+		}
+		tags = filtered
+	}
+
 	sv := NewSemVers(tags, *cmd.Debug)
 	// 最新バージョンの概要を表示
 	latest := sv.Latest
@@ -165,6 +178,9 @@ func main() {
 	}
 	if !strings.HasPrefix(v, "v") {
 		v = "v" + v
+	}
+	if *cmd.Dir != "" {
+		v = strings.TrimSuffix(*cmd.Dir, "/") + "/" + v
 	}
 	fmt.Println("---")
 	create := false
